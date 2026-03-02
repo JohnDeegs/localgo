@@ -1,0 +1,7 @@
+server/auth-token.txt
+server/links.json
+node_modules/
+golinks-import.json
+pics/
+_metadata/
+.claude/

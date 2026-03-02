@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalGo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gray: {
+              950: '#0a0a0f'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    code, .mono { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+    .link-row:hover .row-actions { opacity: 1; }
+    .row-actions { opacity: 0; transition: opacity 0.15s; }
+    .tag-pill {
+      display: inline-flex; align-items: center; padding: 2px 10px;
+      border-radius: 9999px; font-size: 0.72rem; font-weight: 500;
+      background: #1f2937; color: #9ca3af; cursor: pointer;
+      border: 1px solid #374151; transition: all 0.15s; white-space: nowrap;
+    }
+    .tag-pill:hover { background: #374151; color: #e5e7eb; }
+    .tag-pill.active { background: #4338ca; color: #e0e7ff; border-color: #6366f1; }
+    .dropdown-menu {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+      background: #1f2937; border: 1px solid #374151;
+      border-radius: 8px; min-width: 140px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    .dropdown-menu button {
+      display: block; width: 100%; text-align: left;
+      padding: 8px 14px; font-size: 0.82rem; color: #d1d5db;
+      transition: background 0.1s; border-radius: 4px;
+    }
+    .dropdown-menu button:hover { background: #374151; }
+    .dropdown-menu button.danger { color: #f87171; }
+    .dropdown-menu button.danger:hover { background: #3b0f0f; }
+    .fade-in { animation: fadeIn 0.18s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    input[type="checkbox"] { accent-color: #6366f1; cursor: pointer; }
+    input[type="date"] { color-scheme: dark; }
+    .truncate-url { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+    .badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center gap-4 sticky top-0 z-40 shadow-md">
+    <div class="flex items-center gap-2 mr-2 flex-shrink-0">
+      <div class="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shadow-inner">
+        <span class="text-white font-bold text-sm mono">G</span>
+      </div>
+      <span class="font-bold text-white text-lg tracking-tight">LocalGo</span>
+    </div>
+
+    <!-- Inline create form -->
+    <div class="flex-1 bg-gray-800 rounded-xl px-4 py-2 border border-gray-700 focus-within:border-indigo-500 transition-colors min-w-0">
+      <div class="flex items-center gap-2">
+        <span class="text-indigo-400 mono text-sm font-semibold flex-shrink-0">go/</span>
+        <input id="new-keyword" type="text" placeholder="keyword or keyword/{var}" autocomplete="off" spellcheck="false"
+               class="bg-transparent outline-none text-white mono text-sm w-40 placeholder-gray-600 flex-shrink-0" />
+        <span class="text-gray-600 mx-1 flex-shrink-0">→</span>
+        <input id="new-url" type="text" placeholder="Destination URL"
+               class="bg-transparent outline-none text-gray-300 text-sm flex-1 min-w-0 placeholder-gray-600" />
+        <input id="new-tags" type="text" placeholder="tags"
+               class="bg-transparent outline-none text-gray-500 mono text-sm w-20 flex-shrink-0 placeholder-gray-700" />
+        <button id="header-create-btn"
+                class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 active:bg-indigo-700 transition-colors flex-shrink-0 shadow">
+          Create
+        </button>
+      </div>
+      <div class="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-gray-700/40">
+        <span class="text-xs text-gray-600 flex-shrink-0">aliases:</span>
+        <input id="new-aliases" type="text" placeholder="mail, inbox, …"
+               class="bg-transparent outline-none text-gray-500 mono text-xs flex-1 min-w-0 placeholder-gray-700" />
+        <span class="text-xs text-gray-600 flex-shrink-0 ml-2">expires:</span>
+        <input id="new-expires" type="date"
+               class="bg-transparent outline-none text-gray-500 text-xs flex-shrink-0 placeholder-gray-700" />
+      </div>
+    </div>
+  </header>
+
+  <!-- Not Found Banner -->
+  <div id="notfound-banner" class="hidden mx-6 mt-5 bg-indigo-950 border border-indigo-700/60 rounded-xl p-4 text-sm fade-in">
+    <p class="text-indigo-300">
+      No go link found for <strong class="mono bg-indigo-900/60 px-1.5 py-0.5 rounded" id="notfound-path"></strong>.
+      Fill in the destination above to create it.
+    </p>
+  </div>
+
+  <!-- Expired Banner -->
+  <div id="expired-banner" class="hidden mx-6 mt-5 bg-red-950 border border-red-800/60 rounded-xl p-4 text-sm fade-in">
+    <p class="text-red-300">
+      The link <strong class="mono bg-red-900/60 px-1.5 py-0.5 rounded" id="expired-path"></strong> has expired and is no longer active.
+      Edit it below to clear the expiry or set a new destination.
+    </p>
+  </div>
+
+  <!-- Error Banner -->
+  <div id="error-banner" class="hidden mx-6 mt-5 bg-red-950 border border-red-800/60 rounded-xl p-3 text-sm text-red-300 fade-in"></div>
+
+  <!-- Layout -->
+  <div class="flex" style="min-height: calc(100vh - 57px);">
+
+    <!-- Sidebar -->
+    <aside class="w-52 border-r border-gray-800/60 p-5 pt-6 flex-shrink-0 flex flex-col gap-5">
+      <div>
+        <p class="text-xs text-gray-600 uppercase tracking-widest font-semibold mb-3">Tags</p>
+        <div id="tag-sidebar" class="flex flex-col gap-1.5">
+          <button class="tag-pill active text-left" data-tag="__all__">All links</button>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-800 pt-4">
+        <p class="text-xs text-gray-600 uppercase tracking-widest font-semibold mb-3">Health</p>
+        <button id="health-check-btn"
+                class="w-full text-left text-xs text-gray-500 hover:text-gray-300 py-1.5 transition-colors">
+          ⬡ Check all links
+        </button>
+      </div>
+
+      <div class="border-t border-gray-800 pt-4">
+        <p class="text-xs text-gray-600 uppercase tracking-widest font-semibold mb-3">Data</p>
+        <button id="export-btn"
+                class="w-full text-left text-xs text-gray-500 hover:text-gray-300 py-1.5 transition-colors">
+          ↓ Export JSON
+        </button>
+        <label class="w-full text-left text-xs text-gray-500 hover:text-gray-300 py-1.5 transition-colors cursor-pointer block">
+          ↑ Import JSON
+          <input type="file" id="import-file" accept=".json" class="hidden" />
+        </label>
+      </div>
+
+      <div class="border-t border-gray-800 pt-4">
+        <button id="help-btn"
+                class="w-full text-left text-xs text-gray-500 hover:text-gray-300 py-1.5 transition-colors">
+          ? Documentation
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-6 pt-5 min-w-0">
+
+      <!-- Search row -->
+      <div class="flex items-center gap-3 mb-5">
+        <div class="relative flex-1 max-w-lg">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input id="search-input" type="text" placeholder="Search keyword, URL or tag..."
+                 class="w-full bg-gray-800/70 border border-gray-700/60 rounded-xl pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-600 outline-none focus:border-indigo-500/70 transition-colors" />
+        </div>
+        <span id="link-count" class="text-sm text-gray-600 whitespace-nowrap tabular-nums"></span>
+      </div>
+
+      <!-- Bulk bar -->
+      <div id="bulk-bar" class="hidden items-center gap-3 mb-4 px-4 py-2.5 bg-gray-800/80 border border-gray-700/60 rounded-xl text-sm fade-in">
+        <span id="bulk-count" class="text-gray-300 font-medium text-sm"></span>
+        <div class="flex gap-2 ml-auto">
+          <button id="bulk-tag-btn"
+                  class="px-3 py-1.5 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition-colors text-xs font-medium">
+            + Add tag
+          </button>
+          <button id="bulk-delete-btn"
+                  class="px-3 py-1.5 bg-red-950 text-red-400 rounded-lg hover:bg-red-900 transition-colors text-xs font-medium border border-red-900/60">
+            Delete selected
+          </button>
+        </div>
+      </div>
+
+      <!-- Column headers -->
+      <div class="flex items-center gap-3 mb-2 px-4 text-xs text-gray-600 uppercase tracking-wider font-semibold select-none">
+        <input type="checkbox" id="select-all" class="flex-shrink-0" />
+        <span class="flex-1">Shortcut</span>
+        <span style="width:320px">Destination</span>
+        <span class="w-20 text-right">Visits</span>
+        <span class="w-28 text-right">Created</span>
+        <span class="w-8"></span>
+      </div>
+
+      <!-- Links -->
+      <div id="links-list" class="space-y-1"></div>
+
+      <!-- Empty state -->
+      <div id="empty-state" class="hidden text-center py-24">
+        <div class="text-5xl mb-4 opacity-30">⚡</div>
+        <p class="text-base font-medium text-gray-500 mb-1">No go links yet</p>
+        <p class="text-sm text-gray-600">Create your first shortcut using the form above.</p>
+      </div>
+
+      <!-- No results -->
+      <div id="no-results" class="hidden text-center py-20">
+        <p class="text-sm text-gray-600">No links match your search.</p>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Help / Documentation Modal -->
+  <div id="help-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
+    <div class="bg-gray-900 border border-gray-700/60 rounded-2xl w-full max-w-4xl shadow-2xl fade-in flex flex-col" style="height:88vh">
+
+      <!-- Modal header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
+            <span class="text-white font-bold text-xs mono">G</span>
+          </div>
+          <span class="font-semibold text-white">LocalGo — Documentation</span>
+        </div>
+        <button id="help-close" class="text-gray-500 hover:text-gray-200 transition-colors p-1.5 rounded-lg hover:bg-gray-800">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal body -->
+      <div class="flex flex-1 min-h-0">
+
+        <!-- Section nav -->
+        <nav class="w-44 border-r border-gray-800 p-4 flex-shrink-0 overflow-y-auto flex flex-col gap-0.5">
+          <p class="text-xs text-gray-700 uppercase tracking-widest font-semibold mb-2 px-2">Contents</p>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-overview">Overview</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-create">Creating links</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-templates">Template links</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-aliases">Aliases</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-expiry">Expiring links</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-tags">Tags &amp; filtering</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-health">Link health</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-import">Import &amp; export</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-browser">Browser setup</a>
+          <a class="help-nav-link block text-xs py-1.5 px-2 rounded cursor-pointer transition-colors text-gray-400 hover:text-gray-100 hover:bg-gray-800/60" data-target="hs-ai">AI features</a>
+        </nav>
+
+        <!-- Scrollable content -->
+        <div id="help-content" class="flex-1 overflow-y-auto p-8 space-y-10 text-sm">
+
+          <!-- Overview -->
+          <section id="hs-overview">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Overview</h2>
+            <p class="text-gray-400 mb-3 leading-relaxed">LocalGo is a private, local URL shortener that runs entirely on your machine. Map short keywords to full URLs — type <code class="mono text-xs bg-gray-800 text-indigo-300 px-1.5 py-0.5 rounded">go/docs</code> in your browser and navigate there instantly.</p>
+            <p class="text-gray-400 mb-4 leading-relaxed">Unlike cloud-based link shorteners, LocalGo has no accounts, no server costs, and no data leaving your machine. It's a Node.js server you start locally and a Chrome extension that intercepts <code class="mono text-xs bg-gray-800 text-indigo-300 px-1.5 py-0.5 rounded">go/*</code> navigation.</p>
+            <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg p-4 text-xs text-gray-400 leading-relaxed">
+              <span class="text-indigo-400 font-semibold">How it works: </span>Chrome intercepts requests to <code class="mono text-indigo-300">http://go/*</code>, looks up the keyword in your local link store, and issues a 302 redirect to the full destination. Everything happens in milliseconds, entirely on your device.
+            </div>
+          </section>
+
+          <!-- Creating links -->
+          <section id="hs-create">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Creating Go Links</h2>
+            <p class="text-gray-400 mb-4 leading-relaxed">Use the form in the header bar to create a new link. Press <code class="mono text-xs bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">Enter</code> from any field, or click <span class="font-medium text-white">Create</span>.</p>
+            <div class="space-y-3.5 mb-5">
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1 mono">go/<span class="text-indigo-400">keyword</span></p>
+                <p class="text-gray-500 text-xs leading-relaxed">The short name you'll type in the address bar. Lowercase letters, numbers, and hyphens. Supports <code class="mono bg-gray-800 text-amber-300 px-1 rounded">{var}</code> placeholders for template links.</p>
+              </div>
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1">Destination URL</p>
+                <p class="text-gray-500 text-xs leading-relaxed">The full URL to redirect to, starting with <code class="mono bg-gray-800 text-indigo-300 px-1 rounded text-xs">https://</code>.</p>
+              </div>
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1">Tags</p>
+                <p class="text-gray-500 text-xs leading-relaxed">Comma-separated labels for organizing links. Example: <code class="mono bg-gray-800 text-gray-300 px-1 rounded text-xs">work, docs, jira</code>. Tags appear in the sidebar for filtering.</p>
+              </div>
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1">Aliases <span class="text-gray-600 font-normal">(second row)</span></p>
+                <p class="text-gray-500 text-xs leading-relaxed">Additional keywords that resolve to the same link, comma-separated. Example: keyword <code class="mono bg-gray-800 text-indigo-300 px-1 rounded text-xs">gmail</code> with aliases <code class="mono bg-gray-800 text-indigo-300 px-1 rounded text-xs">mail, inbox</code>.</p>
+              </div>
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1">Expires <span class="text-gray-600 font-normal">(second row)</span></p>
+                <p class="text-gray-500 text-xs leading-relaxed">Optional date after which the link stops working. Leave blank for a permanent link.</p>
+              </div>
+            </div>
+            <p class="text-xs text-gray-600">Hover any link row to reveal copy, edit, and delete actions on the right.</p>
+          </section>
+
+          <!-- Template links -->
+          <section id="hs-templates">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Template Links</h2>
+            <p class="text-gray-400 mb-3 leading-relaxed">A single go link can handle many URLs by accepting path variables. Use <code class="mono text-xs bg-gray-800 text-amber-300 px-1.5 py-0.5 rounded">{varname}</code> placeholders in both the keyword and destination URL.</p>
+            <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg p-4 text-xs mono mb-4 space-y-1.5">
+              <div class="flex gap-4"><span class="text-gray-600 w-20 flex-shrink-0">Keyword</span><span class="text-indigo-300">jira/<span class="text-amber-400">{id}</span></span></div>
+              <div class="flex gap-4"><span class="text-gray-600 w-20 flex-shrink-0">URL</span><span class="text-gray-300">https://jira.company.com/browse/<span class="text-amber-400">{id}</span></span></div>
+              <div class="flex gap-4 pt-2 border-t border-gray-700/40"><span class="text-gray-600 w-20 flex-shrink-0">Usage</span><span>Type <span class="text-indigo-300">go/jira/PROJ-123</span> → opens that Jira ticket</span></div>
+            </div>
+            <p class="text-gray-400 mb-2 leading-relaxed">Multiple variables work too:</p>
+            <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg p-4 text-xs mono mb-3 space-y-1.5">
+              <div class="flex gap-4"><span class="text-gray-600 w-20 flex-shrink-0">Keyword</span><span class="text-indigo-300">gh/<span class="text-amber-400">{user}</span>/<span class="text-amber-400">{repo}</span></span></div>
+              <div class="flex gap-4"><span class="text-gray-600 w-20 flex-shrink-0">URL</span><span class="text-gray-300">https://github.com/<span class="text-amber-400">{user}</span>/<span class="text-amber-400">{repo}</span></span></div>
+            </div>
+            <p class="text-gray-600 text-xs">Variable values are URL-encoded automatically. Each placeholder matches one path segment (no slashes). Variables appear highlighted in <span class="text-amber-500">amber</span> in the link list.</p>
+          </section>
+
+          <!-- Aliases -->
+          <section id="hs-aliases">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Aliases</h2>
+            <p class="text-gray-400 mb-3 leading-relaxed">Aliases give a single link multiple names without duplicating the entry. They appear as italic <span class="mono text-gray-600 italic text-xs">=alias</span> chips on the link row.</p>
+            <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg p-4 text-xs mono mb-4 space-y-1.5">
+              <div class="flex gap-4"><span class="text-gray-600 w-20 flex-shrink-0">Keyword</span><span class="text-indigo-300">gmail</span></div>
+              <div class="flex gap-4"><span class="text-gray-600 w-20 flex-shrink-0">Aliases</span><span class="text-gray-400 italic">=mail, =inbox, =email</span></div>
+              <div class="flex gap-4 pt-2 border-t border-gray-700/40 text-gray-400"><span class="w-20 flex-shrink-0"></span><span><span class="text-indigo-300">go/gmail</span>, <span class="text-indigo-300">go/mail</span>, <span class="text-indigo-300">go/inbox</span>, <span class="text-indigo-300">go/email</span> — all work.</span></div>
+            </div>
+            <p class="text-gray-600 text-xs">Type aliases comma-separated in the Aliases field. The <code class="mono bg-gray-800 text-gray-300 px-1 rounded">go/</code> prefix is stripped automatically if included. Aliases are searchable in the dashboard.</p>
+          </section>
+
+          <!-- Expiring links -->
+          <section id="hs-expiry">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Expiring Links</h2>
+            <p class="text-gray-400 mb-3 leading-relaxed">Set an expiry date to automatically deactivate a link after a deadline — useful for event pages, promotional URLs, or temporary access.</p>
+            <ul class="text-gray-500 text-xs space-y-2 mb-4 leading-relaxed list-disc list-inside">
+              <li>Links expire at 23:59 on the selected date (local time).</li>
+              <li>An <span class="text-amber-400 font-medium">expires soon</span> badge appears when expiry is within 7 days.</li>
+              <li>Visiting an expired link shows a banner and opens this dashboard to edit it.</li>
+              <li>An <span class="text-red-400 font-medium">expired</span> badge marks the row.</li>
+              <li>The <span class="text-indigo-300">Expired</span> filter in the sidebar shows all expired links at once.</li>
+              <li>Edit the link and click <span class="text-gray-300 font-medium">clear</span> next to the date to reactivate it.</li>
+            </ul>
+          </section>
+
+          <!-- Tags & filtering -->
+          <section id="hs-tags">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Tags &amp; Filtering</h2>
+            <p class="text-gray-400 mb-4 leading-relaxed">Tags are free-form labels for organizing and filtering your links. They work alongside the search bar and sidebar filters.</p>
+            <div class="space-y-3 text-xs text-gray-500 leading-relaxed">
+              <p><span class="text-gray-300 font-medium">Adding tags: </span>Enter comma-separated tags in the Tags field when creating or editing. Tags are stored lowercase.</p>
+              <p><span class="text-gray-300 font-medium">Tag sidebar: </span>Every unique tag appears in the left panel. Click a tag to filter the list to matching links; click <span class="text-indigo-300">All links</span> to clear.</p>
+              <p><span class="text-gray-300 font-medium">Search: </span>The search bar matches across keyword, destination URL, tags, and aliases simultaneously.</p>
+              <p><span class="text-gray-300 font-medium">Bulk tagging: </span>Tick checkboxes on multiple rows, then click <span class="text-indigo-300">+ Add tag</span> in the bulk action bar to tag them all at once.</p>
+            </div>
+          </section>
+
+          <!-- Link health -->
+          <section id="hs-health">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Link Health</h2>
+            <p class="text-gray-400 mb-4 leading-relaxed">LocalGo tracks how fresh and alive your links are. Status badges appear on each row automatically.</p>
+            <div class="space-y-3 mb-5">
+              <div class="flex items-start gap-3">
+                <span class="badge bg-red-950 text-red-400 border border-red-800/60 flex-shrink-0 mt-0.5">dead</span>
+                <p class="text-xs text-gray-500 leading-relaxed">The destination returned an error (4xx / 5xx) or timed out during a health check. Click <span class="text-gray-300">⬡ Check all links</span> in the sidebar to run checks across all your links at once.</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="badge bg-amber-950 text-amber-400 border border-amber-800/60 flex-shrink-0 mt-0.5">expires soon</span>
+                <p class="text-xs text-gray-500 leading-relaxed">The link has an expiry date within the next 7 days.</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="badge bg-red-950 text-red-400 border border-red-800/60 flex-shrink-0 mt-0.5">expired</span>
+                <p class="text-xs text-gray-500 leading-relaxed">The expiry date has passed. The link no longer redirects.</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="badge bg-gray-800 text-gray-600 border border-gray-700/40 flex-shrink-0 mt-0.5">stale</span>
+                <p class="text-xs text-gray-500 leading-relaxed">Not used in 90 days (or not used since creation over 90 days ago). Not broken — just a nudge to review old links.</p>
+              </div>
+            </div>
+            <p class="text-xs text-gray-600">Template links (containing <code class="mono bg-gray-800 text-amber-300 px-1 py-0.5 rounded">{var}</code>) are skipped during health checks since their URL varies per request.</p>
+          </section>
+
+          <!-- Import & export -->
+          <section id="hs-import">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Import &amp; Export</h2>
+            <p class="text-gray-400 mb-4 leading-relaxed">Back up your links or migrate from another tool using the JSON import/export buttons in the sidebar.</p>
+            <div class="space-y-4 mb-5">
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1">↓ Export JSON</p>
+                <p class="text-gray-500 text-xs leading-relaxed">Downloads all your links as <code class="mono bg-gray-800 text-gray-300 px-1 rounded">golinks.json</code>. Use for backups or copying links to another machine.</p>
+              </div>
+              <div class="pl-3 border-l-2 border-gray-700">
+                <p class="text-xs font-semibold text-gray-300 mb-1">↑ Import JSON</p>
+                <p class="text-gray-500 text-xs leading-relaxed">Select a JSON file to merge into your link store. If a keyword already exists, the imported entry overwrites it. Visit counts and creation dates in the file are preserved.</p>
+              </div>
+            </div>
+            <p class="text-xs text-gray-600 mb-2">Minimum required format:</p>
+            <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg p-3 text-xs mono text-gray-300 leading-relaxed">
+              [{<br>
+              &nbsp;&nbsp;<span class="text-indigo-300">"short_path"</span>: <span class="text-green-400">"docs"</span>,<br>
+              &nbsp;&nbsp;<span class="text-indigo-300">"long_url"</span>: <span class="text-green-400">"https://docs.example.com"</span>,<br>
+              &nbsp;&nbsp;<span class="text-indigo-300">"tags"</span>: [<span class="text-green-400">"work"</span>],<br>
+              &nbsp;&nbsp;<span class="text-indigo-300">"hits"</span>: <span class="text-amber-300">42</span><br>
+              }]
+            </div>
+          </section>
+
+          <!-- Browser setup -->
+          <section id="hs-browser">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">Browser Setup</h2>
+            <div class="space-y-6">
+              <div>
+                <p class="text-xs font-semibold text-gray-300 mb-2">Hosts file <span class="text-gray-600 font-normal">(recommended — enables <code class="mono bg-gray-800 text-indigo-300 px-1 rounded">go/keyword</code> directly in address bar)</span></p>
+                <ol class="text-gray-500 text-xs space-y-2 list-decimal list-inside leading-relaxed">
+                  <li>Open Notepad <strong class="text-gray-400">as Administrator</strong>.</li>
+                  <li>Open <code class="mono bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">C:\Windows\System32\drivers\etc\hosts</code></li>
+                  <li>Add at the bottom: <code class="mono bg-gray-800 text-indigo-300 px-1.5 py-0.5 rounded">127.0.0.1    go</code></li>
+                  <li>Save, then reload the LocalGo extension at <code class="mono bg-gray-800 text-gray-300 px-1 py-0.5 rounded">chrome://extensions</code>.</li>
+                </ol>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-300 mb-1.5">Omnibox fallback <span class="text-gray-600 font-normal">(no hosts file needed)</span></p>
+                <p class="text-gray-500 text-xs leading-relaxed">Type <code class="mono bg-gray-800 text-indigo-300 px-1 py-0.5 rounded text-xs">go</code> in Chrome's address bar and press <code class="mono bg-gray-800 text-gray-300 px-1 py-0.5 rounded text-xs">Tab</code>. The bar switches to LocalGo mode — type your keyword and press Enter to navigate.</p>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-300 mb-1.5">Extension popup</p>
+                <p class="text-gray-500 text-xs leading-relaxed">Click the LocalGo icon in the Chrome toolbar. The popup pre-fills the destination URL from the current page. Enter a keyword and click <span class="text-white font-medium">Create</span> to save instantly.</p>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-300 mb-1.5">Starting the server</p>
+                <p class="text-gray-500 text-xs mb-2 leading-relaxed">The local server must be running for go links to resolve. Start it from the project folder:</p>
+                <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg px-4 py-3 text-xs mono text-indigo-300">node server/server.js</div>
+                <p class="text-gray-600 text-xs mt-2 leading-relaxed">The server runs on port 2999, accessible only from your own machine (127.0.0.1). To start automatically on boot, add it to Windows Task Scheduler or create a startup shortcut.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- AI features -->
+          <section id="hs-ai">
+            <h2 class="text-base font-semibold text-white mb-3 pb-2 border-b border-gray-800">AI Features</h2>
+            <p class="text-gray-400 mb-3 leading-relaxed">LocalGo uses Chrome's built-in Gemini Nano for optional AI features. The model runs entirely on your device — no prompts or page content are sent to Google's servers.</p>
+            <div class="bg-indigo-950/50 border border-indigo-800/40 rounded-lg p-3 text-xs text-gray-400 mb-5 leading-relaxed">
+              <span class="text-indigo-400 font-semibold">Requirements: </span>Chrome 138 or later. Chrome automatically downloads the Nano model (~4 GB) in the background on first use. Check status at <code class="mono bg-gray-800 text-gray-300 px-1 py-0.5 rounded">chrome://on-device-internals</code>. If Nano isn't available, all AI features are silently hidden with no errors.
+            </div>
+            <div class="space-y-5">
+              <div>
+                <p class="text-xs font-semibold text-gray-300 mb-2">Auto-tagging &amp; keyword suggestion <span class="text-gray-600 font-normal">(extension popup)</span></p>
+                <p class="text-gray-500 text-xs leading-relaxed mb-2">When you open the popup on a webpage, Gemini Nano analyses the page title, URL, meta description, and first heading to suggest a go-link keyword and up to 3 relevant tags.</p>
+                <ul class="text-gray-600 text-xs space-y-1.5 list-disc list-inside leading-relaxed">
+                  <li>An "AI suggests" strip appears once the model responds (~1–2 seconds).</li>
+                  <li>Click the keyword button to apply it to the keyword field.</li>
+                  <li>Click any tag chip to add it — already-added chips dim and disable.</li>
+                  <li>All suggestions are optional — type your own and ignore them.</li>
+                  <li>Automatically hidden on <code class="mono bg-gray-800 text-gray-300 px-0.5 rounded">chrome://</code> pages.</li>
+                </ul>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-300 mb-2">Summary peek <span class="text-gray-600 font-normal">(dashboard)</span></p>
+                <p class="text-gray-500 text-xs leading-relaxed mb-2">In the link list, hover any destination URL for 600 ms. LocalGo fetches a text snapshot of the target page (via the local server, to avoid browser CORS restrictions) and summarises it using Nano's Summarizer API.</p>
+                <ul class="text-gray-600 text-xs space-y-1.5 list-disc list-inside leading-relaxed">
+                  <li>Summaries are cached for the session — hovering the same link again is instant.</li>
+                  <li>Move the mouse away to dismiss the tooltip.</li>
+                  <li>Pages that error, time out, or return no text silently skip the tooltip.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk tag modal -->
+  <div id="bulk-tag-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-80 shadow-2xl fade-in">
+      <h3 class="text-white font-semibold mb-1">Add tag to selected links</h3>
+      <p class="text-xs text-gray-500 mb-4">Applied to <span id="bulk-tag-count"></span> selected link(s)</p>
+      <input id="bulk-tag-input" type="text" placeholder="e.g. work"
+             class="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 mb-4 transition-colors" />
+      <div class="flex gap-2 justify-end">
+        <button id="bulk-tag-cancel"
+                class="px-4 py-2 bg-gray-800 text-gray-300 rounded-xl text-sm hover:bg-gray-700 transition-colors">
+          Cancel
+        </button>
+        <button id="bulk-tag-confirm"
+                class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm hover:bg-indigo-500 transition-colors font-medium">
+          Add tag
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-gray-100 border border-gray-700 px-5 py-2.5 rounded-full text-sm font-medium shadow-2xl z-50 fade-in whitespace-nowrap"></div>
+
+  <script src="/dashboard.js"></script>
+</body>
+</html>
