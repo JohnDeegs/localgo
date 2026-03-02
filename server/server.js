@@ -257,7 +257,7 @@ const server = http.createServer(async (req, res) => {
       aliases:    Array.isArray(body.aliases) ? body.aliases.map(a => a.toLowerCase().trim()).filter(Boolean) : [],
       expires_at: body.expires_at || null,
       created_at: existingIdx !== -1 ? links[existingIdx].created_at : (body.created_at || Date.now()),
-      hits:       existingIdx !== -1 ? links[existingIdx].hits : (Number(body.hits) || 0),
+      hits:       body.hits !== undefined ? Number(body.hits) : (existingIdx !== -1 ? links[existingIdx].hits : 0),
       last_used:  existingIdx !== -1 ? links[existingIdx].last_used : null,
       dead:       existingIdx !== -1 ? links[existingIdx].dead : null,
     };
