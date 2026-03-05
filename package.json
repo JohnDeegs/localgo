@@ -1,0 +1,12 @@
+{
+  "name": "localgo",
+  "version": "1.1.0",
+  "description": "Personal go-links server",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
