@@ -56,6 +56,11 @@ function readBody(req) {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
+      const ct = req.headers['content-type'] || '';
+      if (ct.includes('application/x-www-form-urlencoded')) {
+        resolve(Object.fromEntries(new URLSearchParams(body)));
+        return;
+      }
       try { resolve(JSON.parse(body)); } catch { resolve({}); }
     });
   });
