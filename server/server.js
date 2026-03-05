@@ -13,6 +13,7 @@ const DATA_FILE      = path.join(__dirname, 'links.json');
 const TOKEN_FILE     = path.join(__dirname, 'auth-token.txt');
 const DASHBOARD_HTML = path.join(__dirname, 'dashboard.html');
 const DASHBOARD_JS   = path.join(__dirname, 'dashboard.js');
+const FAVICON_SVG    = path.join(__dirname, 'favicon.svg');
 
 // ─── Auth Token ───────────────────────────────────────────────────────────────
 // Generated once on first run and persisted to auth-token.txt.
@@ -215,6 +216,16 @@ const server = http.createServer(async (req, res) => {
     try {
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
       res.end(fs.readFileSync(DASHBOARD_JS));
+    } catch {
+      res.writeHead(404); res.end('Not found');
+    }
+    return;
+  }
+
+  if (urlPath === '/favicon.svg') {
+    try {
+      res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+      res.end(fs.readFileSync(FAVICON_SVG));
     } catch {
       res.writeHead(404); res.end('Not found');
     }

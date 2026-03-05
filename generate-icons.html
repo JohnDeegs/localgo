@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LocalGo — Icon Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    canvas { image-rendering: pixelated; border-radius: 12px; }
+  </style>
+</head>
+<body class="dark bg-gray-950 text-gray-100 min-h-screen flex flex-col items-center justify-center gap-10 p-10">
+
+  <div class="text-center">
+    <div class="flex items-center justify-center gap-2.5 mb-3">
+      <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+        <span class="text-white font-bold text-base" style="font-family:Consolas,monospace">G</span>
+      </div>
+      <h1 class="text-2xl font-bold text-white">LocalGo — Icon Generator</h1>
+    </div>
+    <p class="text-gray-500 text-sm">Download each size, then replace the files in <code class="font-mono bg-gray-800 text-indigo-300 px-1.5 py-0.5 rounded text-xs">icons/</code> and reload the extension.</p>
+  </div>
+
+  <!-- Icon previews -->
+  <div class="flex gap-10 items-end">
+
+    <div class="flex flex-col items-center gap-3">
+      <canvas id="c128" style="width:128px;height:128px"></canvas>
+      <p class="text-xs text-gray-500">128 × 128 <span class="text-gray-700">(Chrome Web Store)</span></p>
+      <a id="dl128" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer">↓ icon128.png</a>
+    </div>
+
+    <div class="flex flex-col items-center gap-3">
+      <canvas id="c48" style="width:96px;height:96px"></canvas>
+      <p class="text-xs text-gray-500">48 × 48 <span class="text-gray-700">(extensions page)</span></p>
+      <a id="dl48" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer">↓ icon48.png</a>
+    </div>
+
+    <div class="flex flex-col items-center gap-3">
+      <canvas id="c16" style="width:64px;height:64px"></canvas>
+      <p class="text-xs text-gray-500">16 × 16 <span class="text-gray-700">(toolbar)</span></p>
+      <a id="dl16" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer">↓ icon16.png</a>
+    </div>
+
+  </div>
+
+  <!-- Instructions -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 text-xs text-gray-500 max-w-lg w-full">
+    <p class="font-semibold text-gray-300 mb-3">Installation</p>
+    <ol class="space-y-2 list-decimal list-inside leading-relaxed">
+      <li>Click each download button above.</li>
+      <li>Move the downloaded files into the <code class="mono bg-gray-800 text-gray-300 px-1 rounded">icons/</code> folder, replacing the existing ones.</li>
+      <li>Open <code class="mono bg-gray-800 text-gray-300 px-1 rounded">chrome://extensions</code>, find LocalGo, and click <strong class="text-gray-200">Reload</strong>.</li>
+      <li>The new icon appears immediately in the Chrome toolbar.</li>
+    </ol>
+  </div>
+
+  <script>
+    function drawIcon(canvas, size) {
+      canvas.width  = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const r   = Math.round(size * 0.22);
+
+      // ── Background gradient ────────────────────────────────────
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, '#3730a3'); // indigo-800
+      grad.addColorStop(1, '#4f46e5'); // indigo-600
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, r);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // ── Subtle inner highlight ─────────────────────────────────
+      const hi = ctx.createLinearGradient(0, 0, 0, size * 0.6);
+      hi.addColorStop(0, 'rgba(255,255,255,0.12)');
+      hi.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, r);
+      ctx.fillStyle = hi;
+      ctx.fill();
+
+      ctx.fillStyle  = '#ffffff';
+      ctx.textAlign  = 'center';
+      ctx.textBaseline = 'middle';
+
+      const monoFont = "'Cascadia Code','Fira Code','Consolas',monospace";
+
+      if (size <= 16) {
+        // ── 16px: bold "G" ────────────────────────────────────────
+        ctx.font = `bold ${Math.round(size * 0.68)}px ${monoFont}`;
+        ctx.fillText('G', size / 2, size * 0.52);
+
+      } else if (size <= 48) {
+        // ── 48px: "G" + small arrow ───────────────────────────────
+        ctx.font = `bold ${Math.round(size * 0.56)}px ${monoFont}`;
+        ctx.fillText('G', size * 0.41, size * 0.5);
+
+        // Right-pointing arrow
+        const ax  = size * 0.76;
+        const ay  = size * 0.5;
+        const len = size * 0.17;
+        const hw  = size * 0.09; // arrowhead width
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        ctx.lineWidth   = Math.max(2, size * 0.08);
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ax - len, ay);
+        ctx.lineTo(ax, ay);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ax - hw, ay - hw);
+        ctx.lineTo(ax, ay);
+        ctx.lineTo(ax - hw, ay + hw);
+        ctx.stroke();
+
+      } else {
+        // ── 128px: "go/" wordmark ─────────────────────────────────
+        ctx.font = `bold ${Math.round(size * 0.37)}px ${monoFont}`;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('go/', size * 0.5, size * 0.44);
+
+        // Subtle "local" label beneath
+        ctx.font = `${Math.round(size * 0.13)}px ${monoFont}`;
+        ctx.fillStyle = 'rgba(255,255,255,0.38)';
+        ctx.fillText('local', size * 0.5, size * 0.70);
+      }
+    }
+
+    function wire(canvasId, dlId, size, filename) {
+      const canvas = document.getElementById(canvasId);
+      drawIcon(canvas, size);
+      const a = document.getElementById(dlId);
+      a.href     = canvas.toDataURL('image/png');
+      a.download = filename;
+    }
+
+    window.addEventListener('load', () => {
+      wire('c128', 'dl128', 128, 'icon128.png');
+      wire('c48',  'dl48',   48, 'icon48.png');
+      wire('c16',  'dl16',   16, 'icon16.png');
+    });
+  </script>
+</body>
+</html>
