@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalGo — Sign in</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    code, .mono { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.2s ease; }
+  </style>
+</head>
+<body class="dark bg-gray-950 text-gray-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="w-full max-w-sm fade-in">
+
+    <!-- Logo -->
+    <div class="flex items-center justify-center gap-2.5 mb-8">
+      <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
+        <span class="text-white font-bold text-lg mono">G</span>
+      </div>
+      <span class="font-bold text-white text-xl tracking-tight">LocalGo</span>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
+      <h1 class="text-lg font-semibold text-white mb-1">Sign in</h1>
+      <p class="text-sm text-gray-500 mb-6">Enter your dashboard password to continue.</p>
+
+      <!-- Error banner -->
+      <div id="error-msg" class="hidden mb-4 px-4 py-3 bg-red-950 border border-red-800/60 rounded-xl text-sm text-red-300">
+        Incorrect password. Try again.
+      </div>
+
+      <form method="POST" action="/login" id="login-form">
+        <div class="mb-5">
+          <label class="block text-xs text-gray-500 mb-1.5 font-medium">Password</label>
+          <input
+            id="password-input"
+            type="password"
+            name="password"
+            autofocus
+            autocomplete="current-password"
+            placeholder="••••••••••••"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors text-sm placeholder-gray-600"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium rounded-xl py-2.5 text-sm transition-colors shadow-lg shadow-indigo-900/30"
+        >
+          Sign in
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-xs text-gray-700 mt-6 mono">go/ links</p>
+  </div>
+
+  <script>
+    // Show error if ?error=1 in URL
+    if (new URLSearchParams(location.search).get('error') === '1') {
+      document.getElementById('error-msg').classList.remove('hidden');
+      document.getElementById('password-input').focus();
+    }
+  </script>
+</body>
+</html>

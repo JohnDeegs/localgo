@@ -1,5 +1,7 @@
 // LocalGo — Popup Script
 
+// After deploying to Railway, replace localhost:2999 with your Railway URL
+// e.g. const SERVER = 'https://localgo-prod.railway.app';
 const SERVER = 'http://localhost:2999';
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────

@@ -8,11 +8,13 @@ const fs    = require('fs');
 const path  = require('path');
 const { randomUUID } = require('crypto');
 
-const PORT = 2999;
-const DATA_FILE      = path.join(__dirname, 'links.json');
+const PORT      = Number(process.env.PORT) || 2999;
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'links.json');
+
 const TOKEN_FILE     = path.join(__dirname, 'auth-token.txt');
 const DASHBOARD_HTML = path.join(__dirname, 'dashboard.html');
 const DASHBOARD_JS   = path.join(__dirname, 'dashboard.js');
+const LOGIN_HTML     = path.join(__dirname, 'login.html');
 const FAVICON_SVG    = path.join(__dirname, 'favicon.svg');
 
 // ─── Auth Token ───────────────────────────────────────────────────────────────
@@ -20,6 +22,7 @@ const FAVICON_SVG    = path.join(__dirname, 'favicon.svg');
 // Never commit this file — add it to .gitignore.
 
 function loadToken() {
+  if (process.env.AUTH_TOKEN) return process.env.AUTH_TOKEN;
   if (!fs.existsSync(TOKEN_FILE)) {
     const token = randomUUID();
     fs.writeFileSync(TOKEN_FILE, token, 'utf8');
@@ -60,11 +63,14 @@ function readBody(req) {
 
 // Allowed CORS origins: the dashboard itself and the Chrome extension
 function setCors(res, reqOrigin) {
-  const allowed = ['http://localhost:2999', 'http://127.0.0.1:2999'];
-  // Allow chrome-extension:// origins (extension popup/background)
+  const allowed = [
+    'http://localhost:2999',
+    'http://127.0.0.1:2999',
+    process.env.PUBLIC_URL,
+  ].filter(Boolean);
   const origin = (allowed.includes(reqOrigin) || /^chrome-extension:\/\//.test(reqOrigin))
     ? reqOrigin
-    : 'http://localhost:2999';
+    : allowed[0];
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-LocalGo-Token');
@@ -92,9 +98,24 @@ function serveHtml(res, filePath, inject = '') {
 
 // ─── Security Guards ──────────────────────────────────────────────────────────
 
+// Cookie helpers — used for dashboard session auth
+function parseCookies(req) {
+  return Object.fromEntries(
+    (req.headers.cookie || '').split(';')
+      .map(c => c.trim().split('='))
+      .filter(p => p.length >= 2)
+      .map(([k, ...v]) => [k.trim(), decodeURIComponent(v.join('=').trim())])
+  );
+}
+function isAuthenticated(req) {
+  return parseCookies(req).session === AUTH_TOKEN;
+}
+
 // Layer 1 — Host header validation (blocks DNS rebinding)
-// DNS rebinding sends Host: evil.com:2999; legitimate requests send Host: localhost:2999
+// In cloud mode (AUTH_TOKEN env var set), token auth alone is sufficient.
+// Locally, validate that the Host header is localhost to block DNS rebinding.
 function isValidHost(req) {
+  if (process.env.AUTH_TOKEN) return true;
   const host = req.headers['host'] || '';
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
@@ -203,9 +224,48 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Login / Logout (password-protected dashboard) ─────────────────────────
+
+  if (urlPath === '/login') {
+    if (method === 'GET') {
+      serveHtml(res, LOGIN_HTML);
+      return;
+    }
+    if (method === 'POST') {
+      const body = await readBody(req);
+      const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
+      if (DASHBOARD_PASSWORD && body.password === DASHBOARD_PASSWORD) {
+        const isCloud = !!process.env.AUTH_TOKEN;
+        res.writeHead(302, {
+          'Set-Cookie': `session=${AUTH_TOKEN}; HttpOnly; Path=/; SameSite=Strict;${isCloud ? ' Secure;' : ''} Max-Age=2592000`,
+          'Location': '/'
+        });
+      } else {
+        res.writeHead(302, { 'Location': '/login?error=1' });
+      }
+      res.end();
+      return;
+    }
+  }
+
+  if (urlPath === '/logout' && method === 'POST') {
+    res.writeHead(302, {
+      'Set-Cookie': 'session=; HttpOnly; Path=/; Max-Age=0',
+      'Location': '/login'
+    });
+    res.end();
+    return;
+  }
+
   // ── Static files (no auth — these are just HTML/JS assets) ──
 
   if (urlPath === '/' || urlPath === '/index.html') {
+    // If password protection is enabled, require a valid session cookie
+    if (process.env.DASHBOARD_PASSWORD && !isAuthenticated(req)) {
+      res.writeHead(302, { 'Location': '/login' });
+      res.end();
+      return;
+    }
     // Inject token so dashboard JS can authenticate API calls
     serveHtml(res, DASHBOARD_HTML,
       `<script>window.GO_AUTH_TOKEN=${JSON.stringify(AUTH_TOKEN)};</script>`);
@@ -213,6 +273,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (urlPath === '/dashboard.js') {
+    if (process.env.DASHBOARD_PASSWORD && !isAuthenticated(req)) {
+      res.writeHead(403); res.end('Forbidden');
+      return;
+    }
     try {
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
       res.end(fs.readFileSync(DASHBOARD_JS));
@@ -369,6 +433,11 @@ const server = http.createServer(async (req, res) => {
     const keyword = urlPath.replace(/^\//, '').toLowerCase().trim();
 
     if (!keyword) {
+      if (process.env.DASHBOARD_PASSWORD && !isAuthenticated(req)) {
+        res.writeHead(302, { 'Location': '/login' });
+        res.end();
+        return;
+      }
       serveHtml(res, DASHBOARD_HTML,
         `<script>window.GO_AUTH_TOKEN=${JSON.stringify(AUTH_TOKEN)};</script>`);
       return;
@@ -420,7 +489,7 @@ const server = http.createServer(async (req, res) => {
   res.end('Not found');
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  LocalGo server running\n`);
   console.log(`  Dashboard → http://localhost:${PORT}`);
   console.log(`  go/ links → http://localhost:${PORT}/<keyword>\n`);

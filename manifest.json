@@ -12,7 +12,8 @@
   ],
   "host_permissions": [
     "http://go/*",
-    "http://localhost:2999/*"
+    "http://localhost:2999/*",
+    "https://*.railway.app/*"
   ],
   "background": {
     "service_worker": "background.js"
