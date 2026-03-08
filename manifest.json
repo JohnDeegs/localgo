@@ -13,7 +13,7 @@
   "host_permissions": [
     "http://go/*",
     "http://localhost:2999/*",
-    "https://*.railway.app/*"
+    "https://localgo-production.up.railway.app/*"
   ],
   "background": {
     "service_worker": "background.js"

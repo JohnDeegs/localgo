@@ -2,9 +2,7 @@
 // The declarativeNetRequest rule in rules.json handles the http://go/* → localhost:2999/* redirect.
 // This file only handles the omnibox fallback (go[Tab]keyword in address bar).
 
-// After deploying to Railway, replace localhost:2999 with your Railway URL
-// e.g. const SERVER = 'https://localgo-prod.railway.app';
-const SERVER = 'http://localhost:2999';
+const SERVER = 'https://localgo-production.up.railway.app';
 
 // ─── Auth ──────────────────────────────────────────────────────────────────────
 
