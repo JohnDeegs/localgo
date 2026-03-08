@@ -5,7 +5,7 @@
     "action": {
       "type": "redirect",
       "redirect": {
-        "regexSubstitution": "http://localhost:2999/\\1"
+        "regexSubstitution": "https://localgo-production.up.railway.app/\\1"
       }
     },
     "condition": {
